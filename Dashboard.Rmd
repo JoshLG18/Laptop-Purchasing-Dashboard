@@ -1,0 +1,79 @@
+---
+title: "Laptop Purchasing Dashboard"
+output: 
+  html_document:
+runtime: shiny
+---
+```{r include = FALSE}
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+Laptopdf = read.csv("LaptopData.csv")
+
+```
+This Laptop Purchasing Dashboard is an interactive tool designed to help users explore and analyze laptop pricing trends and make informed purchasing decisions. By offering a combination of dynamic visualizations and filtering options, the dashboard allows users to examine the distribution of laptop prices, compare different brands, and filter options based on their budget.
+
+Most Common Brand: 
+```{r echo = FALSE}
+brand_counts <- table(Laptopdf$Company)
+most_common_brand <- names(which.max(brand_counts))
+print(most_common_brand)
+```
+Mean Price of Laptops
+```{r echo = FALSE}
+meanprice = mean(Laptopdf$Price_GBP)
+print(meanprice)
+```
+Total Number of Laptops
+```{r echo = FALSE}
+TotalLaptops = nrow(Laptopdf)
+print(TotalLaptops)
+```
+
+
+
+
+```{r echo = FALSE, fig.width=10, fig.height=10}
+
+
+p1 = ggplot(Laptopdf, aes(x = Price_GBP)) + geom_histogram(binwidth = 100, fill = "blue", color = "black") +labs(title = "Distribution of Laptop Prices", x = "Price (GBP)", y = "Count")
+PricePerCompany = Laptopdf %>% group_by(Company) %>% summarise(meanprice = mean(Price_GBP))
+
+p2 = ggplot(data = PricePerCompany ,aes(x = Company, y = meanprice)) + geom_col(fill = "blue", color = "black") + xlab("RAM (GB)")+ ylab("Price (GBP)") + ggtitle("Average Price of Computers Within Each Company") + theme(axis.text.x = element_text(angle = 45, vjust= 0.65))
+PricePerRam = Laptopdf %>% group_by(Ram = factor(Ram)) %>% summarise(meanprice = mean(Price_GBP))
+
+p3 = ggplot(data = PricePerRam ,aes(x = Ram, y = meanprice)) + geom_col(fill = "blue", color = "black") + xlab("RAM (GB)")+ylab("Price (GBP)") + ggtitle("Price of Computers Within Each RAM Category")
+
+companycounts = as.data.frame(table(Laptopdf$Company))
+p4 = ggplot(companycounts, aes(x = Var1, y = Freq)) + geom_bar(stat = "identity", fill = "blue") + theme(axis.text.x = element_text(angle= 45, hjust = 1)) + xlab("Company") +ylab("NUmber of Laptops") + ggtitle("Number of Laptops `Per` Company")
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+
+```
+
+
+```{r echo = FALSE}
+library(shiny)
+ui <- fluidPage(
+  titlePanel("Affordable Laptop Finder"),
+  numericInput("Budget", "Enter your Budget in GBP - Enter 5500 If No Budget", value = 5500, min = 0, step = 100),
+  selectInput("sortOrder", "Sort by Price", choices = c("Ascending" = "asc", "Descending" = "desc")),
+  tableOutput("affordablelaptop")
+)
+
+server <- function(input, output) {
+  output$affordablelaptop <- renderTable({
+    affordable <- Laptopdf[Laptopdf$Price_GBP <= input$Budget, ]
+    
+    if (input$sortOrder == "asc") {
+      affordable <- affordable[order(affordable$Price_GBP), ]
+    } else {
+      affordable <- affordable[order(affordable$Price_GBP, decreasing = TRUE), ]
+    }
+    
+    affordable[, c("Company", "Product", "Price_GBP", "Ram" )]
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
